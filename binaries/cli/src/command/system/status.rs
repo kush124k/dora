@@ -147,39 +147,7 @@ impl Executable for Status {
                     .ok_or_else(|| eyre::eyre!("dataflow path has no parent dir"))?
                     .to_owned();
 
-                // 2. Read and Parse the YAML
-                let descriptor = Descriptor::blocking_read(&dataflow)?;
-                
-                // 3. [NEW] Static Analysis: Check if node files exist!
-                // We iterate over all nodes to verify their 'source' (path) exists.    
-                println!("Checking dataflow descriptor...");
-                let mut all_files_found = true; // Track success
-
-                for node in &descriptor.nodes {
-                    if let Some(path) = &node.path {
-                        let node_path = working_dir.join(path);
-                        
-                        if !node_path.exists() {
-                            // Print error but CONTINUE looking for others
-                            eprintln!(" [ERROR] Node '{}': File not found.", node.id);
-                            eprintln!("   Looking for: {}", node_path.display());
-                            all_files_found = false; 
-                        } else {
-                            println!("✓ Node '{}': File exists", node.id);
-                        }
-                    }
-                }
-
-                if !all_files_found {
-                    // NOW we exit, after showing all errors
-                    eprintln!("\n Static check failed: One or more source files are missing.");
-                    std::process::exit(1);
-                }
-                // 4. Run the original internal check (syntax, etc.)
-                descriptor.check(&working_dir)?;
-
-                // 5. Check if the Backend (Daemon/Coordinator) is running
-                println!("\nChecking Backend Status:");
+                Descriptor::blocking_read(&dataflow)?.check(&working_dir)?;
                 check_environment((self.coordinator_addr, self.coordinator_port).into())?
             }
             None => check_environment((self.coordinator_addr, self.coordinator_port).into())?,
