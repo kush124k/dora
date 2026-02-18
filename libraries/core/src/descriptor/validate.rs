@@ -48,13 +48,16 @@ pub fn check_dataflow(
                             }
                         } else if custom.build.is_some() {
                             info!("skipping path check for node with build command");
-                        } else if let Err(err) = resolve_path(source, working_dir) {
-                            errors.push(format!(
-                                "node `{}`: could not find source path `{source}`: {err}",
-                                node.id
-                            ));
+                        } else {
+                            let result = resolve_path(source, working_dir);
+
+    
+                            if let Err(err) = result {
+                                errors.push(format!("node `{}`: {err}", node.id));
+                            };
                         };
                     }
+                
                 },
                 dora_message::descriptor::NodeSource::GitBranch { .. } => {
                     info!("skipping check for node with git source");

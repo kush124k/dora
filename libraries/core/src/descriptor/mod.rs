@@ -10,7 +10,6 @@ use std::{
     path::{Path, PathBuf},
     process::Stdio,
 };
-use tokio::process::Command;
 
 // reexport for compatibility
 pub use dora_message::descriptor::{
@@ -224,14 +223,27 @@ pub fn resolve_path(source: &str, working_dir: &Path) -> Result<PathBuf> {
     } else if which::which("uv").is_ok() {
         // spawn: uv run which <path>
         let which = if cfg!(windows) { "where" } else { "which" };
-        let _output = Command::new("uv")
+        let output = std::process::Command::new("uv")
             .arg("run")
             .arg(which)
             .arg(&path)
-            .stdout(Stdio::null())
-            .spawn()
-            .context("Could not find binary within uv")?;
-        Ok(path)
+            //.stdout(Stdio::null())
+            //.stderr(Stdio::null())
+            .output()
+            .context("Could not run `uv run` to find binary")?;
+        if output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            
+            if stderr.contains("Could not find files") || stdout.contains("Could not find files") {
+                bail!("Could not find source path {}", path.display());
+            }
+            Ok(path)
+        } else if let Ok(abs_path) = which::which(&path) {
+            Ok(abs_path)
+        } else {
+            bail!("Could not find source path {}", path.display())
+        }
     } else if let Ok(abs_path) = which::which(&path) {
         Ok(abs_path)
     } else {
